@@ -162,3 +162,4 @@ jobs:
           body: ${{ needs.prepare.outputs.changelog }}
           token: ${{ secrets.GITHUB_TOKEN }}
           name: ${{ steps.generate-release-name.outputs.RELEASE_NAME }}
+
