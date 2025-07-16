@@ -1,0 +1,187 @@
+name: Release CI
+
+on: push
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      changelog: ${{ steps.build_changelog.outputs.changelog }}
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v3
+      - name: 获取静态资源
+        run: |
+          chmod +x fetch.sh
+          ./fetch.sh
+      - name: 上传
+        uses: actions/upload-artifact@v4
+        with:
+          name: sample
+          path: |
+            assets
+            examples
+      - name: Install moment-timezone
+        run: npm install moment-timezone
+      - name: Generate release name
+        id: generate-release-name
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const moment = require('moment-timezone');
+            const now = moment().tz('Asia/Shanghai');
+            const formattedDate = now.format('MMDDHH');
+            const hash = process.env.GITHUB_SHA.substring(0, 7);
+            const releaseName = `${formattedDate}.${hash}`;
+            core.setOutput('RELEASE_NAME', releaseName);
+      - name: Build Changelog
+        id: build_changelog
+        uses: mikepenz/release-changelog-builder-action@v5          
+        with: 
+          mode: "COMMIT"
+          configurationJson: |
+            {
+              "template": "Change log from #{{FROM_TAG}} to #{{TO_TAG}}: #{{RELEASE_DIFF}}\n#{{UNCATEGORIZED}}",
+              "pr_template": "- [#{{MERGE_SHA}}] - #{{TITLE}}"
+            }
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          body: |
+            ${{ steps.build_changelog.outputs.changelog }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: ${{ steps.generate-release-name.outputs.RELEASE_NAME }}
+
+  build-linux:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v3
+      - name: 获取静态资源
+        uses: actions/download-artifact@v4
+        with:
+          name: sample
+      - name: 安装 Rust 工具链
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: "x86_64-unknown-linux-gnu, x86_64-unknown-linux-musl"
+      - name: 构建 chai
+        run: |
+          cargo build --target x86_64-unknown-linux-gnu --bin 天书生成器 --release
+          cargo build --target x86_64-unknown-linux-musl --bin 天书生成器 --release
+      - name: Archive
+        run: |
+          cp target/x86_64-unknown-linux-gnu/release/天书生成器 ./
+          tar -czf 天书生成器-linux-gnu.tar.gz 天书生成器 assets/* examples/* README.md LICENSE
+          cp target/x86_64-unknown-linux-musl/release/天书生成器 ./
+          tar -czf 天书生成器-linux-musl.tar.gz 天书生成器 assets/* examples/* README.md LICENSE
+      - name: Install moment-timezone
+        run: npm install moment-timezone
+      - name: Generate release name
+        id: generate-release-name
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const moment = require('moment-timezone');
+            const now = moment().tz('Asia/Shanghai');
+            const formattedDate = now.format('MMDDHH');
+            const hash = process.env.GITHUB_SHA.substring(0, 7);
+            const releaseName = `${formattedDate}.${hash}`;
+            core.setOutput('RELEASE_NAME', releaseName);
+      - uses: ncipollo/release-action@v1
+        with:
+          artifacts: "天书生成器*.tar.gz"
+          allowUpdates: true
+          body: ${{ needs.prepare.outputs.changelog }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: ${{ steps.generate-release-name.outputs.RELEASE_NAME }}
+
+  build-macos:
+    needs: prepare
+    runs-on: macos-latest
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v3
+      - name: 获取静态资源
+        uses: actions/download-artifact@v4
+        with:
+          name: sample
+      - name: Install Zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.13.0
+      - name: Install Rust Toolchains
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: "x86_64-apple-darwin, aarch64-apple-darwin"
+      - name: Install cargo-zigbuild
+        run: cargo install cargo-zigbuild
+      - name: Build
+        run: cargo zigbuild --target universal2-apple-darwin --bin 天书生成器 --release
+      - name: Archive
+        run: |
+          cp target/universal2-apple-darwin/release/天书生成器 ./
+          tar -czf 天书生成器-macos.tar.gz 天书生成器 assets/* examples/* README.md LICENSE
+      - name: Install moment-timezone
+        run: npm install moment-timezone
+      - name: Generate release name
+        id: generate-release-name
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const moment = require('moment-timezone');
+            const now = moment().tz('Asia/Shanghai');
+            const formattedDate = now.format('MMDDHH');
+            const hash = process.env.GITHUB_SHA.substring(0, 7);
+            const releaseName = `${formattedDate}.${hash}`;
+            core.setOutput('RELEASE_NAME', releaseName);
+      - uses: ncipollo/release-action@v1
+        with:
+          artifacts: "天书生成器-macos.tar.gz"
+          allowUpdates: true
+          body: ${{ needs.prepare.outputs.changelog }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: ${{ steps.generate-release-name.outputs.RELEASE_NAME }}
+
+  build-windows:
+    needs: prepare
+    runs-on: windows-latest
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v3
+      - name: 获取静态资源
+        uses: actions/download-artifact@v4
+        with:
+          name: sample
+      - name: Install Rust Toolchains
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: "x86_64-pc-windows-msvc"
+      - name: Build
+        run: cargo build --bin 天书生成器 --release
+      - name: Archive
+        run: |
+          cp target/release/天书生成器.exe ./
+          7z a -tzip 天书生成器-windows.zip 天书生成器.exe assets/* examples/* README.md LICENSE
+      - name: Install moment-timezone
+        run: npm install moment-timezone
+      - name: Generate release name
+        id: generate-release-name
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const moment = require('moment-timezone');
+            const now = moment().tz('Asia/Shanghai');
+            const formattedDate = now.format('MMDDHH');
+            const hash = process.env.GITHUB_SHA.substring(0, 7);
+            const releaseName = `${formattedDate}.${hash}`;
+            core.setOutput('RELEASE_NAME', releaseName);
+      - uses: ncipollo/release-action@v1
+        with:
+          artifacts: "天书生成器-windows.zip"
+          allowUpdates: true
+          body: ${{ needs.prepare.outputs.changelog }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: ${{ steps.generate-release-name.outputs.RELEASE_NAME }}
