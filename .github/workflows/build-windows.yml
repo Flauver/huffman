@@ -1,0 +1,60 @@
+name: Build Windows Targets
+
+on: push
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+
+  build-msvc:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install Rust (MSVC)
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: x86_64-pc-windows-msvc
+        override: true
+
+    - name: Build (MSVC)
+      run: cargo build --release --target x86_64-pc-windows-msvc
+        
+    - name: Upload artifacts (MSVC)
+      uses: actions/upload-artifact@v4
+      with:
+        name: 天书生成器
+        path: target/x86_64-pc-windows-msvc/release/*.exe
+        
+#  build-gnu:
+#    runs-on: windows-latest
+    
+#    steps:
+#    - uses: actions/checkout@v3
+
+#    - name: Unset RUSTUP_USE_MSVC (if it exists)
+#      shell: powershell
+#      run: Remove-Item Env:\RUSTUP_USE_MSVC -ErrorAction SilentlyContinue
+    
+#    - name: Install Rust (GNU)
+#      uses: actions-rs/toolchain@v1
+#      with:
+#        toolchain: stable
+#        target: x86_64-pc-windows-gnu
+#        override: true
+
+#    - name: Set default toolchain to GNU
+#      shell: bash  # Important: Use bash for this command
+#      run: rustup default stable-x86_64-pc-windows-gnu && rustup override set stable-x86_64-pc-windows-gnu
+        
+#    - name: Build (GNU)
+#      run: cargo build --release --target x86_64-pc-windows-gnu
+        
+#    - name: Upload artifacts (GNU)
+#      uses: actions/upload-artifact@v4
+#      with:
+#        name: windows-gnu-build
+#        path: target/x86_64-pc-windows-gnu/release/*.exe
