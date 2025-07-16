@@ -27,6 +27,7 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true
+          body: 无
           token: ${{ secrets.GITHUB_TOKEN }}
           name: ${{ steps.generate-release-name.outputs.RELEASE_NAME }}
 
@@ -162,4 +163,3 @@ jobs:
           body: ${{ needs.prepare.outputs.changelog }}
           token: ${{ secrets.GITHUB_TOKEN }}
           name: ${{ steps.generate-release-name.outputs.RELEASE_NAME }}
-
