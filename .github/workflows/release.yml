@@ -10,17 +10,6 @@ jobs:
     steps:
       - name: 拉取代码
         uses: actions/checkout@v3
-      - name: 获取静态资源
-        run: |
-          chmod +x fetch.sh
-          ./fetch.sh
-      - name: 上传
-        uses: actions/upload-artifact@v4
-        with:
-          name: sample
-          path: |
-            assets
-            examples
       - name: Install moment-timezone
         run: npm install moment-timezone
       - name: Generate release name
